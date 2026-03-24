@@ -4,13 +4,15 @@ from pipeline.training import train_model
 from pipeline.evaluation import evaluate_model
 from itertools import product
 
+EXPERIMENT_NAME = "movie_rating_recommendation_v2"
+
 
 def run_hyperparameter_tuning():
     """Run hyperparameter tuning experiments with different configurations."""
     
     # Set MLflow tracking
     mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("movie_rating_recommendation")
+    mlflow.set_experiment(EXPERIMENT_NAME)
     
     # Load and split data once
     print("Loading data...")

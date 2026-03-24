@@ -1,4 +1,5 @@
 import mlflow
+import os
 from surprise import accuracy
 import matplotlib.pyplot as plt
 
@@ -21,6 +22,13 @@ def create_prediction_plot(predictions):
 
 def evaluate_model(model, testset, run_id: str):
     """Evaluate model and log metrics to MLflow."""
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+
+    if not run_id:
+        raise ValueError("run_id is required to log evaluation metrics")
+
     with mlflow.start_run(run_id=run_id):
         # Make predictions
         predictions = model.test(testset)
@@ -36,5 +44,6 @@ def evaluate_model(model, testset, run_id: str):
         # Create and log plots
         fig = create_prediction_plot(predictions)
         mlflow.log_figure(fig, "prediction_distribution.png")
+        plt.close(fig)
         
         return {"rmse": rmse, "mae": mae}

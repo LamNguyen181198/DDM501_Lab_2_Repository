@@ -53,9 +53,12 @@ services:
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      AIRFLOW_SHARED_DIR: /opt/airflow/shared
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dag:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
+      - ./shared:/opt/airflow/shared
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     ports:
@@ -88,9 +91,12 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      AIRFLOW_SHARED_DIR: /opt/airflow/shared
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dag:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
+      - ./shared:/opt/airflow/shared
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     restart: always
@@ -116,9 +122,12 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      AIRFLOW_SHARED_DIR: /opt/airflow/shared
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dag:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
+      - ./shared:/opt/airflow/shared
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     restart: always
@@ -145,9 +154,12 @@ services:
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
+      AIRFLOW_SHARED_DIR: /opt/airflow/shared
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dag:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
+      - ./shared:/opt/airflow/shared
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     entrypoint: /bin/bash
@@ -168,18 +180,18 @@ services:
 
   # MLflow tracking server
   mlflow:
-    image: python:3.10-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: "0:0"
     command: >
-      bash -c "pip install mlflow psycopg2-binary &&
-               mlflow server --host 0.0.0.0 --port 5000 
-               --backend-store-uri postgresql://mlflow:mlflow@mlflow-db/mlflow 
-               --default-artifact-root /mlflow/artifacts"
+      bash -c "mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://mlflow:mlflow@mlflow-db/mlflow --artifacts-destination /tmp/mlflow-artifacts --serve-artifacts"
     depends_on:
       - mlflow-db
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
-      - mlflow-artifacts:/mlflow/artifacts
+      - mlflow-artifacts:/tmp/mlflow-artifacts
     environment:
       MLFLOW_TRACKING_URI: http://0.0.0.0:5000
     restart: always

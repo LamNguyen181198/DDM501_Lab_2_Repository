@@ -1,19 +1,29 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+import os
+import pickle
 
-# Task functions with XCom for data passing
+SHARED_DIR = os.getenv("AIRFLOW_SHARED_DIR", "/opt/airflow/shared")
+TRAINSET_PATH = os.path.join(SHARED_DIR, "trainset.pkl")
+TESTSET_PATH = os.path.join(SHARED_DIR, "testset.pkl")
+MODEL_PATH = os.path.join(SHARED_DIR, "model.pkl")
+EXPERIMENT_NAME = "movie_rating_recommendation_v2"
+MODEL_NAME = "movie_rating_model"
+
+
 def load_data_fn(**context):
     """Load and prepare data."""
     from pipeline.data_ingestion import load_data, split_data
-    import pickle
+
+    os.makedirs(SHARED_DIR, exist_ok=True)
 
     data = load_data()
     trainset, testset = split_data(data)
 
-    with open('/tmp/trainset.pkl', 'wb') as f:
+    with open(TRAINSET_PATH, 'wb') as f:
         pickle.dump(trainset, f)
-    with open('/tmp/testset.pkl', 'wb') as f:
+    with open(TESTSET_PATH, 'wb') as f:
         pickle.dump(testset, f)
 
     return "Data loaded successfully"
@@ -21,10 +31,12 @@ def load_data_fn(**context):
 
 def train_model_fn(**context):
     """Train model and log to MLflow."""
-    import pickle
+    import mlflow
     from pipeline.training import train_model
 
-    with open('/tmp/trainset.pkl', 'rb') as f:
+    mlflow.set_experiment(EXPERIMENT_NAME)
+
+    with open(TRAINSET_PATH, 'rb') as f:
         trainset = pickle.load(f)
 
     model, run_id = train_model(
@@ -35,7 +47,7 @@ def train_model_fn(**context):
     )
 
     # Save model for next task
-    with open('/tmp/model.pkl', 'wb') as f:
+    with open(MODEL_PATH, 'wb') as f:
         pickle.dump(model, f)
 
     context['ti'].xcom_push(key='run_id', value=run_id)
@@ -44,13 +56,12 @@ def train_model_fn(**context):
 
 def evaluate_fn(**context):
     """Evaluate model and log metrics."""
-    import pickle
     from pipeline.evaluation import evaluate_model
 
     # Load model and testset
-    with open('/tmp/model.pkl', 'rb') as f:
+    with open(MODEL_PATH, 'rb') as f:
         model = pickle.load(f)
-    with open('/tmp/testset.pkl', 'rb') as f:
+    with open(TESTSET_PATH, 'rb') as f:
         testset = pickle.load(f)
 
     # Get run_id from previous task
@@ -69,8 +80,8 @@ def register_fn(**context):
 
     # Register best model from experiment
     best_run_id = register_best_model(
-        experiment_name="movie_rating_recommendation",
-        model_name="movie_rating_model"
+        experiment_name=EXPERIMENT_NAME,
+        model_name=MODEL_NAME
     )
     
     print(f"Registered model from run: {best_run_id}")

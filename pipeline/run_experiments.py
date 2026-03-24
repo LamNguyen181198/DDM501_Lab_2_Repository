@@ -3,6 +3,8 @@ from pipeline.data_ingestion import load_data, split_data
 from pipeline.training import train_model
 from pipeline.evaluation import evaluate_model
 
+EXPERIMENT_NAME = "movie_rating_recommendation_v2"
+
 # Define experiment configurations
 EXPERIMENTS = [
  {"model_type": "svd", "n_factors": 50, "n_epochs": 20},
@@ -13,15 +15,18 @@ EXPERIMENTS = [
 ]
 
 def run_all_experiments():
-    mlflow.set_experiment("movie-rating-hyperparameter-tuning")
+    mlflow.set_experiment(EXPERIMENT_NAME)
 
     # Load data once
     data = load_data()
     trainset, testset = split_data(data)
+
     results = []
     for config in EXPERIMENTS:
-        model_type = config.pop("model_type")
-        model, run_id = train_model(trainset, model_type, **config)
+        config_copy = config.copy()
+        model_type = config_copy.pop("model_type")
+        model, run_id = train_model(trainset, model_type, **config_copy)
         metrics = evaluate_model(model, testset, run_id)
-        results.append({"config": config, "metrics": metrics})
-        return results
+        results.append({"config": config_copy, "metrics": metrics, "run_id": run_id})
+
+    return results
